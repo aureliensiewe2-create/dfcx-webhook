@@ -4,18 +4,22 @@ import express from "express";
 const app = express();
 app.use(express.json());
 
-// Optionnel si tu utilises MockAPI plus tard
+// (optionnel si tu connectes une vraie API plus tard)
 const MOCKAPI_BASE = process.env.MOCKAPI_BASE;
+
+// 🗂️ Mini “base” en mémoire pour la démo
+const ORDERS = {
+  "12345": { status: "confirmed", carrier: "DHL",   etaDays: 2 },
+  "67890": { status: "shipped",   carrier: "FedEx", etaDays: 3 },
+  "55555": { status: "delivered", carrier: "UPS",   etaDays: 0 }
+};
 
 app.post("/df-webhook", async (req, res) => {
   try {
-    // Tag défini dans Dialogflow (Webhook settings → Tag)
     const tag = req.body?.fulfillmentInfo?.tag || "";
-
-    // On récupère les paramètres de session
     const params = req.body?.sessionInfo?.parameters || {};
 
-    // ✅ Accepte plusieurs noms de paramètre
+    // Tolère plusieurs noms de paramètres
     const orderNumberRaw =
       params.orderNumber ??
       params.ordernumber ??
@@ -25,12 +29,10 @@ app.post("/df-webhook", async (req, res) => {
 
     const orderNumber = String(orderNumberRaw).trim();
 
-    // Logs utiles visibles dans Render → Deploy logs
     console.log("Webhook tag:", tag);
     console.log("Webhook params:", JSON.stringify(params));
     console.log("Resolved orderNumber:", orderNumber);
 
-    // On ne traite que le tag attendu
     if (tag !== "track-order") {
       return res.json({
         fulfillment_response: {
@@ -39,7 +41,6 @@ app.post("/df-webhook", async (req, res) => {
       });
     }
 
-    // Pas de numéro → on le demande
     if (!orderNumber) {
       return res.json({
         fulfillment_response: {
@@ -48,8 +49,8 @@ app.post("/df-webhook", async (req, res) => {
       });
     }
 
-    // Mauvais numéro → non trouvé
-    if (orderNumber !== "12345") {
+    const info = ORDERS[orderNumber];
+    if (!info) {
       return res.json({
         fulfillment_response: {
           messages: [{ text: { text: [`Order ${orderNumber} not found.`] } }]
@@ -57,15 +58,27 @@ app.post("/df-webhook", async (req, res) => {
       });
     }
 
-    // ✅ Bon numéro → confirmé
+    // Compose le message selon le statut
+    let msg;
+    if (info.status === "delivered") {
+      msg = `Order ${orderNumber} was delivered via ${info.carrier}.`;
+    } else {
+      const eta = info.etaDays > 0 ? ` Estimated delivery: ${info.etaDays} day(s).` : "";
+      msg = `Order ${orderNumber} is ${info.status}.` +
+            `${eta} Carrier: ${info.carrier}.`;
+    }
+
     return res.json({
       fulfillment_response: {
-        messages: [
-          { text: { text: [`Order ${orderNumber} is confirmed and being processed.`] } }
-        ]
+        messages: [{ text: { text: [msg] } }]
       },
-      // (optionnel) renvoi du paramètre normalisé dans la session
-      sessionInfo: { parameters: { orderNumber } }
+      // On peut renvoyer des paramètres en session si tu veux les réutiliser
+      sessionInfo: {
+        parameters: {
+          orderNumber,
+          lastOrderStatus: info.status
+        }
+      }
     });
 
   } catch (err) {
@@ -78,7 +91,6 @@ app.post("/df-webhook", async (req, res) => {
   }
 });
 
-// Render écoute sur ce port
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`Webhook listening on ${PORT}`);
