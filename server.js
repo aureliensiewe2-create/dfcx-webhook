@@ -14,7 +14,13 @@ const KNOWN = {
 // Webhook principal
 app.post("/df-webhook", (req, res) => {
   const tag = req.body?.fulfillmentInfo?.tag ?? "";
-  const lang = (req.body?.sessionInfo?.languageCode || "en").toLowerCase();
+const lang =
+  (req.body?.languageCode ||
+   req.body?.queryResult?.languageCode ||
+   req.headers["x-goog-dialogflow-language-code"] ||
+   req.body?.sessionInfo?.languageCode ||
+   "en"
+  ).toLowerCase();
   const t = (enTxt, frTxt) => (lang.startsWith("fr") ? frTxt : enTxt);
 
   if (tag === "track-order") {
