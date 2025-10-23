@@ -72,6 +72,20 @@ const lang =
 });
 
 // Démarrage serveur
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000;// --- Recherche de produits ---
+app.post("/search-products", async (req, res) => {
+  const params = req.body.sessionInfo?.parameters || {};
+  const lang = (req.body.sessionInfo?.languageCode || "en").toLowerCase();
+  const t = (enTxt, frTxt) => (lang.startsWith("fr") ? frTxt : enTxt);
+
+  const { color, price_max, category, size, brand } = params;
+
+  // Base de données simulée
+  const products = [
+    { name: "Nike Air Sneakers", color: "blue", price: 80, category: "shoes", size: "42", brand: "Nike" },
+    { name: "Black T-Shirt", color: "black", price: 25, category: "t-shirt", size: "M", brand: "Adidas" },
+    { name: "Red Dress", color: "red", price: 60, category: "dress", size: "S", brand: "Zara" },
+    { name: "Jeans Slim", color: "blue", price: 45, category: "jean", size: "32", brand: "Levis" },
+  ];
 app.listen(PORT, () => console.log("Webhook listening on " + PORT));
 
