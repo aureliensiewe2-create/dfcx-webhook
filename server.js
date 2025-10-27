@@ -13,15 +13,19 @@ app.get("/", (req, res) => res.send("OK"));
 // -----------------------------
 const KNOWN_ORDERS = {
   "12345": { status: { en: "confirmed", fr: "confirmée" }, etaDays: 2, carrier: "DHL" },
-  "54321": { status: { en: "shipped",   fr: "expédiée"  }, etaDays: 3, carrier: "UPS" }
+  "54321": { status: { en: "shipped", fr: "expédiée" }, etaDays: 3, carrier: "UPS" },
+  "98765": { status: { en: "delivered", fr: "livrée" }, etaDays: 0, carrier: "Chronopost" },
+  "11223": { status: { en: "processing", fr: "en préparation" }, etaDays: 1, carrier: "La Poste" }
 };
 
+
 const CATALOG = [
-  { name: "Nike Air Sneakers", color: "blue",  price: 80, category: "shoes",  size: "42", brand: "Nike"  },
-  { name: "Black T-shirt",     color: "black", price: 25, category: "t-shirt",size: "M",  brand: "Adidas"},
-  { name: "Red Dress",         color: "red",   price: 60, category: "dress",  size: "S",  brand: "Zara"  },
-  { name: "Jean Slim",         color: "blue",  price: 45, category: "jean",   size: "32", brand: "Levi's"}
+  { name: "Nike Air Sneakers", color: "blue", price: 80, category: "shoes", size: "42", brand: "Nike" },
+  { name: "Black T-shirt", color: "black", price: 25, category: "t-shirt", size: "M", brand: "Adidas" },
+  { name: "Red Dress", color: "red", price: 60, category: "dress", size: "M", brand: "Zara" },
+  { name: "Jean Slim", color: "blue", price: 45, category: "jean", size: "32", brand: "Levi’s" }
 ];
+
 
 // petit helper de langue
 function i18n(lang) {
