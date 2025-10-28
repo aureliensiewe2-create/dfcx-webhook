@@ -31,14 +31,21 @@ function i18n(lang) {
 
 // ---------- 2) Webhook principal DFCX ----------
 app.post("/df-webhook", (req, res) => {
-// 🔎 Détection automatique de la langue (corrigée)
-const lang = String(
-  req.body?.sessionInfo?.languageCode ??
-  req.headers?.["x-goog-dialogflow-language-code"] ??
-"en"
-).toLowerCase();
+// 🔎 Détection automatique de la langue (robuste)
+const lang =
+  (req.body?.sessionInfo?.languageCode) ||   // Dialogflow CX (classique)
+  (req.body?.languageCode) ||                // Conversational Agents (top-level)
+  (req.headers?.["x-goog-dialogflow-language-code"]) || // Fallback header
+  "en";
+
+console.log("LANG sources:", {
+  sessionInfo: req.body?.sessionInfo?.languageCode,
+  topLevel: req.body?.languageCode,
+  header: req.headers?.["x-goog-dialogflow-language-code"],
+});
 
 const t = i18n(lang);
+
 const tag = req.body?.fulfillmentInfo?.tag ?? "";
 const params = req.body?.sessionInfo?.parameters || {};
 
