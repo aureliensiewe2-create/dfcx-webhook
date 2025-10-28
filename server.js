@@ -1,60 +1,52 @@
-// server.js  — version propre, ESM
+// server.js — propre, ESM
 
 import express from "express";
 
 const app = express();
 app.use(express.json());
 
-// Petit endpoint santé
+// Santé
 app.get("/", (req, res) => res.send("OK"));
 
-// -----------------------------
-// 1) Données simulées
-// -----------------------------
+// ---------- 1) Données simulées ----------
 const KNOWN_ORDERS = {
   "12345": { status: { en: "confirmed", fr: "confirmée" }, etaDays: 2, carrier: "DHL" },
-  "54321": { status: { en: "shipped", fr: "expédiée" }, etaDays: 3, carrier: "UPS" },
-  "98765": { status: { en: "delivered", fr: "livrée" }, etaDays: 0, carrier: "Chronopost" },
-  "11223": { status: { en: "processing", fr: "en préparation" }, etaDays: 1, carrier: "La Poste" }
+  "54321": { status: { en: "shipped",   fr: "expédiée"  }, etaDays: 3, carrier: "UPS"  },
+  "98765": { status: { en: "delivered", fr: "livrée"    }, etaDays: 0, carrier: "Chronopost" },
+  "11223": { status: { en: "processing",fr: "en préparation" }, etaDays: 1, carrier: "La Poste" }
 };
 
-
 const CATALOG = [
-  { name: "Nike Air Sneakers", color: "blue", price: 80, category: "shoes", size: "42", brand: "Nike" },
-  { name: "Black T-shirt", color: "black", price: 25, category: "t-shirt", size: "M", brand: "Adidas" },
-  { name: "Red Dress", color: "red", price: 60, category: "dress", size: "M", brand: "Zara" },
-  { name: "Jean Slim", color: "blue", price: 45, category: "jean", size: "32", brand: "Levi’s" }
+  { name: "Nike Air Sneakers", color: "blue",  price: 80, category: "shoes",   size: "42", brand: "Nike"   },
+  { name: "Black T-shirt",     color: "black", price: 25, category: "t-shirt", size: "M",  brand: "Adidas" },
+  { name: "Red Dress",         color: "red",   price: 60, category: "dress",   size: "M",  brand: "Zara"   },
+  { name: "Jean Slim",         color: "blue",  price: 45, category: "jean",    size: "32", brand: "Levi's" }
 ];
 
-
-// petit helper de langue
+// Helper langue
 function i18n(lang) {
   const isFr = String(lang || "en").toLowerCase().startsWith("fr");
   return (enTxt, frTxt) => (isFr ? frTxt : enTxt);
 }
 
-// -----------------------------
-// 2) Webhook principal DFCX
-// -----------------------------
+// ---------- 2) Webhook principal DFCX ----------
 app.post("/df-webhook", (req, res) => {
-  // 🔍 Détection automatique de la langue
-const lang = (
-  req.body?.sessionInfo?.languageCode ||
-  req.headers["x-goog-dialogflow-language-code"] ||
-  req.body?.queryResult?.languageCode ||
-  "en"
-).toLowerCase();
+  // Détection automatique langue (plusieurs sources possibles)
+  const lang =
+    req.body?.sessionInfo?.languageCode ||
+    req.headers?.["x-goog-dialogflow-language-code"] ||
+    req.body?.queryResult?.languageCode ||
+    "en";
 
-console.log("LANG DETECTED (search):", lang);
-
-const t = i18n(lang);
-const p = req.body?.sessionInfo?.parameters || {};
-const params = req.body?.sessionInfo?.parameters || {};
+  const t = i18n(lang);
+  const tag = req.body?.fulfillmentInfo?.tag ?? "";
+  const params = req.body?.sessionInfo?.parameters || {};
 
   // --- A) Suivi de commande ---
   if (tag === "track-order") {
     const orderNumber = String(params.ordernumber ?? params.orderNumber ?? "").trim();
 
+    // 1) Valide 5 chiffres
     if (!/^\d{5}$/.test(orderNumber)) {
       const ask = t(
         "Please provide your 5-digit order number to check the delivery status.",
@@ -63,6 +55,7 @@ const params = req.body?.sessionInfo?.parameters || {};
       return res.json({ fulfillment_response: { messages: [{ text: { text: [ask] } }] } });
     }
 
+    // 2) Récupère l’info
     const info = KNOWN_ORDERS[orderNumber];
     if (!info) {
       const notFound = t(
@@ -72,10 +65,12 @@ const params = req.body?.sessionInfo?.parameters || {};
       return res.json({ fulfillment_response: { messages: [{ text: { text: [notFound] } }] } });
     }
 
+    // 3) Compose la réponse
     const msg = t(
       `Order ${orderNumber} is ${info.status.en}. Estimated delivery: ${info.etaDays} day(s) via ${info.carrier}.`,
       `La commande ${orderNumber} est ${info.status.fr}. Livraison estimée : ${info.etaDays} jour(s) via ${info.carrier}.`
     );
+
     return res.json({
       fulfillment_response: { messages: [{ text: { text: [msg] } }] },
       session_info: { parameters: { lastOrderStatus: info.status.en } }
@@ -84,17 +79,17 @@ const params = req.body?.sessionInfo?.parameters || {};
 
   // --- B) Recherche de produits ---
   if (tag === "search-products") {
-    const color    = params.color?.toString().toLowerCase()    ?? "";
-    const category = params.category?.toString().toLowerCase() ?? "";
-    const size     = params.size?.toString().toLowerCase()     ?? "";
-    const brand    = params.brand?.toString().toLowerCase()    ?? "";
+    const color    = params.color?.toString()?.toLowerCase()   ?? "";
+    const category = params.category?.toString()?.toLowerCase() ?? "";
+    const size     = params.size?.toString()?.toLowerCase()     ?? "";
+    const brand    = params.brand?.toString()?.toLowerCase()    ?? "";
     const priceMax = Number(params.price_max) || undefined;
 
-    const result = CATALOG.filter(item => {
-      const okColor = !color || item.color.toLowerCase() === color;
+    const result = CATALOG.filter((item) => {
+      const okColor = !color    || item.color.toLowerCase() === color;
       const okCat   = !category || item.category.toLowerCase() === category;
-      const okSize  = !size || String(item.size).toLowerCase() === size;
-      const okBrand = !brand || item.brand.toLowerCase().includes(brand);
+      const okSize  = !size     || String(item.size).toLowerCase() === size;
+      const okBrand = !brand    || item.brand.toLowerCase().includes(brand);
       const okPrice = priceMax === undefined || item.price <= priceMax;
       return okColor && okCat && okSize && okBrand && okPrice;
     });
@@ -111,31 +106,16 @@ const params = req.body?.sessionInfo?.parameters || {};
         "Désolé, je n’ai trouvé aucun produit correspondant."
       );
     }
+
     return res.json({ fulfillment_response: { messages: [{ text: { text: [message] } }] } });
   }
 
-  // --- C) Tag inconnu ---
+  // --- C) Tag inconnu (fallback)
   const sorry = t("Sorry, I didn't understand.", "Désolé, je n’ai pas compris.");
   return res.json({ fulfillment_response: { messages: [{ text: { text: [sorry] } }] } });
 });
 
-  }
-
-  // Fallback si le tag n’est pas géré ici
-  const sorry = t("Sorry, I didn't understand.", "Désolé, je n’ai pas compris.");
-  return res.json({
-    fulfillment_response: { messages: [{ text: { text: [sorry] } }] }
-  });
-});
-
-// -----------------------------
-// 3) Recherche de produits (facultatif mais utile)
-//    Appelle /search-products depuis un autre webhook si besoin
-// -----------------------------
-
-
-// -----------------------------
-// 4) Démarrage serveur (unique)
-// -----------------------------
+// ---------- 3) Démarrage serveur ----------
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log("Webhook listening on " + PORT));
+app.listen(PORT, () => console.log("Webhook listening on", PORT));
+
