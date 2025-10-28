@@ -34,8 +34,8 @@ app.post("/df-webhook", (req, res) => {
   // Détection automatique langue (plusieurs sources possibles)
   const lang =
     req.body?.sessionInfo?.languageCode ||
-    req.headers?.["x-goog-dialogflow-language-code"] ||
-    req.body?.queryResult?.languageCode ||
+    req.headers?["x-goog-dialogflow-language-code"] ||
+  
     "en";
 
   const t = i18n(lang);
