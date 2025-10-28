@@ -31,16 +31,17 @@ function i18n(lang) {
 
 // ---------- 2) Webhook principal DFCX ----------
 app.post("/df-webhook", (req, res) => {
-  // Détection automatique langue (plusieurs sources possibles)
-  const lang =
-    req.body?.sessionInfo?.languageCode ||
-    req.headers?["x-goog-dialogflow-language-code"] ||
-  
-    "en";
+// 🔎 Détection automatique de la langue (corrigée)
+const lang = String(
+  req.body?.sessionInfo?.languageCode ??
+  req.headers?.["x-goog-dialogflow-language-code"] ??
+"en"
+).toLowerCase();
 
-  const t = i18n(lang);
-  const tag = req.body?.fulfillmentInfo?.tag ?? "";
-  const params = req.body?.sessionInfo?.parameters || {};
+const t = i18n(lang);
+const tag = req.body?.fulfillmentInfo?.tag ?? "";
+const params = req.body?.sessionInfo?.parameters || {};
+
 
   // --- A) Suivi de commande ---
   if (tag === "track-order") {
