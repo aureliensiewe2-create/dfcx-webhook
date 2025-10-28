@@ -37,8 +37,19 @@ function i18n(lang) {
 // 2) Webhook principal DFCX
 // -----------------------------
 app.post("/df-webhook", (req, res) => {
-  const tag   = req.body?.fulfillmentInfo?.tag ?? "";
-  const lang  = req.body?.sessionInfo?.languageCode || "en";
+  // 🔍 Détection automatique de la langue
+const lang = (
+  req.body?.sessionInfo?.languageCode ||
+  req.headers["x-goog-dialogflow-language-code"] ||
+  req.body?.queryResult?.languageCode ||
+  "en"
+).toLowerCase();
+
+console.log("LANG DETECTED (search):", lang);
+
+const t = i18n(lang);
+const p = req.body?.sessionInfo?.parameters || {};
+
   const t = (enTxt, frTxt) => (String(lang).toLowerCase().startsWith("fr") ? frTxt : enTxt);
   const params = req.body?.sessionInfo?.parameters || {};
 
