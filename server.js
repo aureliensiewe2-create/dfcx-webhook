@@ -49,8 +49,7 @@ console.log("LANG DETECTED (search):", lang);
 
 const t = i18n(lang);
 const p = req.body?.sessionInfo?.parameters || {};
-
-  const params = req.body?.sessionInfo?.parameters || {};
+const params = req.body?.sessionInfo?.parameters || {};
 
   // --- A) Suivi de commande ---
   if (tag === "track-order") {
