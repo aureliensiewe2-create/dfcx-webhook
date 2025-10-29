@@ -93,14 +93,17 @@ const params = req.body?.sessionInfo?.parameters || {};
     const brand    = params.brand?.toString()?.toLowerCase()    ?? "";
     const priceMax = Number(params.price_max) || undefined;
 
-    const result = CATALOG.filter((item) => {
-      const okColor = !color    || item.color.toLowerCase() === color;
-      const okCat   = !category || item.category.toLowerCase() === category;
-      const okSize  = !size     || String(item.size).toLowerCase() === size;
-      const okBrand = !brand    || item.brand.toLowerCase().includes(brand);
-      const okPrice = priceMax === undefined || item.price <= priceMax;
-      return okColor && okCat && okSize && okBrand && okPrice;
-    });
+ const normalize = s => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+const result = CATALOG.filter(item => {
+  const okColor = !color || normalize(item.color).includes(normalize(color));
+  const okCat = !category || normalize(item.category).includes(normalize(category));
+  const okSize = !size || normalize(item.size) === normalize(size);
+  const okBrand = !brand || normalize(item.brand).includes(normalize(brand));
+  const okPrice = priceMax === undefined || item.price <= priceMax;
+  return okColor && okCat && okSize && okBrand && okPrice;
+});
+
 
     let message;
     if (result.length > 0) {
