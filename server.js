@@ -85,18 +85,14 @@ const params = req.body?.sessionInfo?.parameters || {};
     });
   }
 
-// --- B) Recherche de produits ---
-if (tag === "search-products") {
-  let color = params.color?.toString()?.toLowerCase() ?? "";
-  let category = params.category?.toString()?.toLowerCase() ?? "";
-  const size = params.size?.toString()?.toLowerCase() ?? "";
-  const brand = params.brand?.toString()?.toLowerCase() ?? "";
-  const priceMax = Number(params.price_max) || undefined;
+// Normalisation : minuscules, sans accents, et on enlève la ponctuation/espaces
+const normalize = s =>
+  String(s || "")
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")  // retire les accents
+    .replace(/[^a-z0-9]/g, "");                        // retire tout sauf a-z0-9
 
-
- const normalize = s => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-
-// Traduction rapide FR → EN pour les couleurs et catégories
+// Dictionnaire FR -> EN pour couleurs & catégories
 const frToEn = {
   // Couleurs
   "rouge": "red",
@@ -107,46 +103,76 @@ const frToEn = {
   "jaune": "yellow",
   "gris": "gray",
   "rose": "pink",
-  // Catégories
+  // Catégories (multi-variantes courantes)
   "robe": "dress",
   "tshirt": "t-shirt",
+  "t-shirt": "t-shirt",
+  "tee-shirt": "t-shirt",
+  "teeshirt": "t-shirt",
+  "t shirt": "t-shirt",
   "chemise": "shirt",
   "jean": "jean",
-  "chaussure": "shoes"
+  "pantalon": "jean",      // si tu n’as que “jean” dans le catalogue
+  "chaussure": "shoes",
+  "chaussures": "shoes"
+  // Catégories (mots usuels)
+"jean": "jean",
+"jeans": "jean",
+"pantalon": "jean",
+"pantalons": "jean",
+
 };
 
-// Si la langue détectée est FR, on traduit les paramètres avant la recherche
-if (lang.startsWith("fr")) {
-  if (frToEn[color]) color = frToEn[color];
-  if (frToEn[category]) category = frToEn[category];
-}
-const result = CATALOG.filter(item => {
-  const okColor = !color || normalize(item.color).includes(normalize(color));
-  const okCat = !category || normalize(item.category).includes(normalize(category));
-  const okSize = !size || normalize(item.size) === normalize(size);
-  const okBrand = !brand || normalize(item.brand).includes(normalize(brand));
-  const okPrice = priceMax === undefined || item.price <= priceMax;
-  return okColor && okCat && okSize && okBrand && okPrice;
-});
+// Trouve une traduction en cherchant un mot-clé FR contenu dans la valeur
+const translateLoose = (value, map) => {
+  const v = normalize(value);
+  for (const [fr, en] of Object.entries(map)) {
+    if (v.includes(normalize(fr))) return en;
+  }
+  return value; // si rien trouvé, on garde tel quel
+};
 
+// --- B) Recherche de produits ---
+if (tag === "search-products") {
+  let color    = params.color?.toString()    ?? "";
+  let category = params.category?.toString() ?? "";
+  let size     = params.size?.toString()     ?? "";
+  let brand    = params.brand?.toString()    ?? "";
+  const priceMax = Number(params.price_max) || undefined;
 
-    let message;
-    if (result.length > 0) {
-      message = t(
-        `Here are some ${color || ""} ${category || "products"} I found: ${result.map(p => p.name).join(", ")}.`,
-        `Voici quelques ${category || "articles"} ${color || ""} que j’ai trouvés : ${result.map(p => p.name).join(", ")}.`
-      );
-    } else {
-      message = t(
-        "Sorry, I couldn't find any matching products.",
-        "Désolé, je n’ai trouvé aucun produit correspondant."
-      );
-    }
-
-    return res.json({ fulfillment_response: { messages: [{ text: { text: [message] } }] } });
+  // Si la langue détectée est FR, on traduit les paramètres (souple)
+  if (lang.startsWith("fr")) {
+    if (color)    color    = translateLoose(color, frToEn);
+    if (category) category = translateLoose(category, frToEn);
   }
 
-  // --- C) Tag inconnu (fallback)
+  const result = CATALOG.filter(item => {
+    const okColor = !color || normalize(item.color).includes(normalize(color));
+    const okCat   = !category || normalize(item.category).includes(normalize(category));
+    const okSize  = !size || normalize(String(item.size)) === normalize(size);
+    const okBrand = !brand || normalize(item.brand).includes(normalize(brand));
+    const okPrice = priceMax === undefined || item.price <= priceMax;
+    return okColor && okCat && okSize && okBrand && okPrice;
+  });
+
+  let message;
+  if (result.length > 0) {
+    message = t(
+      `Here are some ${color || ""} ${category || "products"} I found: ${result.map(p => p.name).join(", ")}.`,
+      `Voici quelques ${category || "articles"} ${color || ""} que j’ai trouvés : ${result.map(p => p.name).join(", ")}.`
+    );
+  } else {
+    message = t(
+      "Sorry, I couldn't find any matching products.",
+      "Désolé, je n’ai trouvé aucun produit correspondant."
+    );
+  }
+
+  return res.json({
+    fulfillment_response: { messages: [{ text: { text: [message] } }] }
+  });
+}
+
   const sorry = t("Sorry, I didn't understand.", "Désolé, je n’ai pas compris.");
   return res.json({ fulfillment_response: { messages: [{ text: { text: [sorry] } }] } });
 });
