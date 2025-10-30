@@ -85,16 +85,41 @@ const params = req.body?.sessionInfo?.parameters || {};
     });
   }
 
-  // --- B) Recherche de produits ---
-  if (tag === "search-products") {
-    const color    = params.color?.toString()?.toLowerCase()   ?? "";
-    const category = params.category?.toString()?.toLowerCase() ?? "";
-    const size     = params.size?.toString()?.toLowerCase()     ?? "";
-    const brand    = params.brand?.toString()?.toLowerCase()    ?? "";
-    const priceMax = Number(params.price_max) || undefined;
+// --- B) Recherche de produits ---
+if (tag === "search-products") {
+  let color = params.color?.toString()?.toLowerCase() ?? "";
+  let category = params.category?.toString()?.toLowerCase() ?? "";
+  const size = params.size?.toString()?.toLowerCase() ?? "";
+  const brand = params.brand?.toString()?.toLowerCase() ?? "";
+  const priceMax = Number(params.price_max) || undefined;
+
 
  const normalize = s => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 
+// Traduction rapide FR → EN pour les couleurs et catégories
+const frToEn = {
+  // Couleurs
+  "rouge": "red",
+  "bleu": "blue",
+  "noir": "black",
+  "blanc": "white",
+  "vert": "green",
+  "jaune": "yellow",
+  "gris": "gray",
+  "rose": "pink",
+  // Catégories
+  "robe": "dress",
+  "tshirt": "t-shirt",
+  "chemise": "shirt",
+  "jean": "jean",
+  "chaussure": "shoes"
+};
+
+// Si la langue détectée est FR, on traduit les paramètres avant la recherche
+if (lang.startsWith("fr")) {
+  if (frToEn[color]) color = frToEn[color];
+  if (frToEn[category]) category = frToEn[category];
+}
 const result = CATALOG.filter(item => {
   const okColor = !color || normalize(item.color).includes(normalize(color));
   const okCat = !category || normalize(item.category).includes(normalize(category));
