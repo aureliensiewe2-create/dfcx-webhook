@@ -119,8 +119,7 @@ const frToEn = {
 "jean": "jean",
 "jeans": "jean",
 "pantalon": "jean",
-"pantalons": "jean",
-
+"pantalons": "jean"
 };
 
 // Trouve une traduction en cherchant un mot-clé FR contenu dans la valeur
