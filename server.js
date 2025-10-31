@@ -117,11 +117,6 @@ const frToEn = {
   "chaussure": "shoes",
   "chaussures": "shoes"
 }; // <<< ✅ très important : PAS de virgule avant cette accolade
-"pantalon": "jean",
-"pantalons": "jean",
-"chaussure": "shoes",
-"chaussures": "shoes"
-}; // ← fin de frToEn, rien après !
 // Trouve une traduction en cherchant un mot-clé FR contenu dans la valeur
 const translateLoose = (value, map) => {
   const v = normalize(value);
