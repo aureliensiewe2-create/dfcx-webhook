@@ -19,7 +19,7 @@ const KNOWN_ORDERS = {
 const CATALOG = [
   { name: "Nike Air Sneakers", color: "blue",  price: 80, category: "shoes",   size: "42", brand: "Nike"   },
   { name: "Black T-shirt",     color: "black", price: 25, category: "t-shirt", size: "M",  brand: "Adidas" },
-  { name: "Red Dress",         color: "red",   price: 60, category: "dress",   size: "M",  brand: "Zara"   },
+  { name: "red dress",         color: "red",   price: 60, category: "dress",   size: "M",  brand: "Zara"   },
   { name: "Jean Slim",         color: "blue",  price: 45, category: "jean",    size: "32", brand: "Levi's" }
 ];
 
@@ -139,8 +139,9 @@ if (tag === "search-products") {
     if (color)    color    = translateLoose(color, frToEn);
     if (category) category = translateLoose(category, frToEn);
   }
+  console.log("DEBUG", { color, category });
 
-  const result = CATALOG.filter(item => {
+const result = CATALOG.filter(item => {
     const okColor = !color || normalize(item.color).includes(normalize(color));
     const okCat   = !category || normalize(item.category).includes(normalize(category));
     const okSize  = !size || normalize(String(item.size)) === normalize(size);
