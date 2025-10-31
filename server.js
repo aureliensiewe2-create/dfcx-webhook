@@ -103,25 +103,25 @@ const frToEn = {
   "jaune": "yellow",
   "gris": "gray",
   "rose": "pink",
-  // Catégories (multi-variantes courantes)
+
+  // Catégories
   "robe": "dress",
   "tshirt": "t-shirt",
-  "t-shirt": "t-shirt",
   "tee-shirt": "t-shirt",
-  "teeshirt": "t-shirt",
-  "t shirt": "t-shirt",
+  "tee shirt": "t-shirt",
   "chemise": "shirt",
   "jean": "jean",
-  "pantalon": "jean",      // si tu n’as que “jean” dans le catalogue
+  "jeans": "jean",
+  "pantalon": "jean",
+  "pantalons": "jean",
   "chaussure": "shoes",
   "chaussures": "shoes"
-  // Catégories (mots usuels)
-"jean": "jean",
-"jeans": "jean",
+}; // <<< ✅ très important : PAS de virgule avant cette accolade
 "pantalon": "jean",
-"pantalons": "jean"
-};
-
+"pantalons": "jean",
+"chaussure": "shoes",
+"chaussures": "shoes"
+}; // ← fin de frToEn, rien après !
 // Trouve une traduction en cherchant un mot-clé FR contenu dans la valeur
 const translateLoose = (value, map) => {
   const v = normalize(value);
