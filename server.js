@@ -128,13 +128,23 @@ const translateLoose = (value, map) => {
 
 // --- B) Recherche de produits ---
 if (tag === "search-products") {
-  let color    = params.color?.toString()    ?? "";
-  let category = params.category?.toString() ?? "";
-  let size     = params.size?.toString()     ?? "";
-  let brand    = params.brand?.toString()    ?? "";
-  const priceMax = Number(params.price_max) || undefined;
+// Récupération robuste des paramètres (essaie plusieurs noms possibles)
+const p = req.body?.sessionInfo?.parameters || {};
+let color    = (p.color ?? p.couleur ?? p.couleur_name ?? p.colour ?? "").toString();
+let category = (p.category ?? p.categorie ?? p.product ?? p.type ?? p.item ?? "").toString();
+let size     = (p.size ?? p.taille ?? "").toString();
+let brand    = (p.brand ?? p.marque ?? "").toString();
+const priceMax = Number(p.price_max ?? p.max_price ?? p.price ?? undefined) || undefined;
 
-  // Si la langue détectée est FR, on traduit les paramètres (souple)
+// normalisation en minuscules (on laisse la fonction normalize gérer les accents/espace)
+color    = color.toLowerCase();
+category = category.toLowerCase();
+size     = size.toLowerCase();
+brand    = brand.toLowerCase();
+  
+  console.log("PARAMS RAW:", JSON.stringify(p));
+
+// Si la langue détectée est FR, on traduit les paramètres (souple)
   if (lang.startsWith("fr")) {
     if (color)    color    = translateLoose(color, frToEn);
     if (category) category = translateLoose(category, frToEn);
