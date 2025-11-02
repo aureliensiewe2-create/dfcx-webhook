@@ -125,10 +125,9 @@ const translateLoose = (value, map) => {
   }
   return value; // si rien trouvé, on garde tel quel
 };
-
-// --- B) Recherche de produits ---
-if (tag === "search-products") {
-// Récupération robuste des paramètres (essaie plusieurs noms possibles)
+  // --- B) Recherche de produits ---
+if (tag === "search-products" || tag === "Find_product") {
+ // Récupération robuste des paramètres (essaie plusieurs noms possibles)
 const p = req.body?.sessionInfo?.parameters || {};
 let color    = (p.color ?? p.couleur ?? p.couleur_name ?? p.colour ?? "").toString();
 let category = (p.category ?? p.categorie ?? p.product ?? p.type ?? p.item ?? "").toString();
