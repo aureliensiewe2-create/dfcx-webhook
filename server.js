@@ -1,56 +1,99 @@
-// server.js — propre, ESM
+// server.js — ESM, prêt Render
 
 import express from "express";
 
 const app = express();
 app.use(express.json());
 
-// Santé
-app.get("/", (req, res) => res.send("OK"));
+// --- 0) Santé
+app.get("/", (_req, res) => res.send("OK"));
 
-// ---------- 1) Données simulées ----------
+// --- 1) Données simulées
+
 const KNOWN_ORDERS = {
-  "12345": { status: { en: "confirmed", fr: "confirmée" }, etaDays: 2, carrier: "DHL" },
-  "54321": { status: { en: "shipped",   fr: "expédiée"  }, etaDays: 3, carrier: "UPS"  },
-  "98765": { status: { en: "delivered", fr: "livrée"    }, etaDays: 0, carrier: "Chronopost" },
-  "11223": { status: { en: "processing",fr: "en préparation" }, etaDays: 1, carrier: "La Poste" }
+  "12345":  { status: { en: "confirmed",  fr: "confirmée" },   etaDays: 2, carrier: "DHL" },
+  "54321":  { status: { en: "shipped",    fr: "expédiée" },    etaDays: 3, carrier: "UPS" },
+  "98765":  { status: { en: "delivered",  fr: "livrée" },      etaDays: 0, carrier: "Chrono" },
+  "11223":  { status: { en: "processing", fr: "en préparation"},etaDays: 1, carrier: "LaPoste" }
 };
 
 const CATALOG = [
-  { name: "Nike Air Sneakers", color: "blue",  price: 80, category: "shoes",   size: "42", brand: "Nike"   },
-  { name: "Black T-shirt",     color: "black", price: 25, category: "t-shirt", size: "M",  brand: "Adidas" },
-  { name: "red dress",         color: "red",   price: 60, category: "dress",   size: "M",  brand: "Zara"   },
-  { name: "Jean Slim",         color: "blue",  price: 45, category: "jean",    size: "32", brand: "Levi's" }
+  { name: "Black T-shirt", color: "black", price: 25, category: "t-shirt", size: "M", brand: "Nike" },
+  { name: "Red Dress",     color: "red",   price: 60, category: "dress",   size: "M", brand: "Zara" },
+  { name: "Jean Slim",     color: "blue",  price: 45, category: "jean",    size: "32", brand: "Levi's" },
 ];
 
-// Helper langue
+// --- 2) i18n utilitaire
 function i18n(lang) {
   const isFr = String(lang || "en").toLowerCase().startsWith("fr");
   return (enTxt, frTxt) => (isFr ? frTxt : enTxt);
 }
 
-// ---------- 2) Webhook principal DFCX ----------
+// --- 3) Normalisation (minuscules + accents + supprime ponctuation)
+const normalize = (s) =>
+  String(s || "")
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")   // accents
+    .replace(/[^a-z0-9 ]/g, " ")                        // ponctuation -> espace
+    .replace(/\s+/g, " ")                               // espaces multiples
+    .trim();
+
+// --- 4) Dictionnaire FR -> EN (recherche)
+const frToEn = {
+  // Couleurs
+  "rouge": "red",
+  "bleu": "blue",
+  "noir": "black",
+  "blanc": "white",
+  "vert": "green",
+  "jaune": "yellow",
+  "gris": "gray",
+  "rose": "pink",
+
+  // Catégories (avec variantes courantes)
+  "robe": "dress",
+  "tshirt": "t-shirt",
+  "tee-shirt": "t-shirt",
+  "tee shirt": "t-shirt",
+  "chemise": "shirt",
+  "jean": "jean",
+  "jeans": "jean",
+  "pantalon": "jean",
+  "pantalons": "jean",
+  "chaussure": "shoes",
+  "chaussures": "shoes",
+};
+
+// EN -> FR (pour l’affichage)
+const enToFr = Object.fromEntries(
+  Object.entries(frToEn).map(([fr, en]) => [en, fr])
+);
+
+// Traduction souple : si la valeur FR contient un mot-clé du dico, on renvoie l’EN
+const translateLoose = (value, map) => {
+  const v = normalize(value);
+  for (const [fr, en] of Object.entries(map)) {
+    if (v.includes(normalize(fr))) return en;
+  }
+  return value; // rien trouvé -> on laisse tel quel
+};
+
+// --- 5) Webhook principal
 app.post("/df-webhook", (req, res) => {
-// 🔎 Détection automatique de la langue (robuste)
-const lang =
-  (req.body?.sessionInfo?.languageCode) ||   // Dialogflow CX (classique)
-  (req.body?.languageCode) ||                // Conversational Agents (top-level)
-  (req.headers?.["x-goog-dialogflow-language-code"]) || // Fallback header
-  "en";
+  // 5.1 Détection de langue (DFCX + header fallback)
+  const lang =
+    req.body?.sessionInfo?.languageCode ||
+    req.body?.languageCode ||
+    req.headers?.["x-goog-dialogflow-language-code"] ||
+    "en";
 
-console.log("LANG sources:", {
-  sessionInfo: req.body?.sessionInfo?.languageCode,
-  topLevel: req.body?.languageCode,
-  header: req.headers?.["x-goog-dialogflow-language-code"],
-});
+  const t = i18n(lang);
 
-const t = i18n(lang);
+  // 5.2 Tag de fulfillment + paramètres de session
+  const tag = req.body?.fulfillmentInfo?.tag ?? "";
+  const params = req.body?.sessionInfo?.parameters || {};
 
-const tag = req.body?.fulfillmentInfo?.tag ?? "";
-const params = req.body?.sessionInfo?.parameters || {};
-
-
-  // --- A) Suivi de commande ---
+  // =============== A) Suivi de commande ===============
   if (tag === "track-order") {
     const orderNumber = String(params.ordernumber ?? params.orderNumber ?? "").trim();
 
@@ -60,7 +103,9 @@ const params = req.body?.sessionInfo?.parameters || {};
         "Please provide your 5-digit order number to check the delivery status.",
         "Merci d’indiquer votre numéro de commande (5 chiffres) pour vérifier le statut."
       );
-      return res.json({ fulfillment_response: { messages: [{ text: { text: [ask] } }] } });
+      return res.json({
+        fulfillment_response: { messages: [{ text: { text: [ask] } }] }
+      });
     }
 
     // 2) Récupère l’info
@@ -70,7 +115,9 @@ const params = req.body?.sessionInfo?.parameters || {};
         `I couldn't find order ${orderNumber}. Please check the number.`,
         `Je n’ai pas trouvé la commande ${orderNumber}. Merci de vérifier le numéro.`
       );
-      return res.json({ fulfillment_response: { messages: [{ text: { text: [notFound] } }] } });
+      return res.json({
+        fulfillment_response: { messages: [{ text: { text: [notFound] } }] }
+      });
     }
 
     // 3) Compose la réponse
@@ -85,15 +132,86 @@ const params = req.body?.sessionInfo?.parameters || {};
     });
   }
 
-// Normalisation : minuscules, sans accents, et on enlève la ponctuation/espaces
-const normalize = s =>
-  String(s || "")
-    .toLowerCase()
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")  // retire les accents
-    .replace(/[^a-z0-9]/g, "");                        // retire tout sauf a-z0-9
+  // =============== B) Recherche de produits (Find_product) ===============
+  if (tag === "Find_product") {
+    // 1) Lecture robuste des paramètres (plusieurs noms possibles)
+    const p = params;
+    const origColor =
+      (p.color ?? p.couleur ?? p.couleur_name ?? p.colour ?? "").toString();
+    const origCategory =
+      (p.category ?? p.categorie ?? p.product ?? p.type ?? p.item ?? "").toString();
+    const origSize = (p.size ?? p.taille ?? "").toString();
+    const origBrand = (p.brand ?? p.marque ?? "").toString();
 
-// Dictionnaire FR -> EN pour couleurs & catégories
-const frToEn = {
+    // 2) Normalisation pour la recherche (minuscules)
+    let color = origColor.toLowerCase();
+    let category = origCategory.toLowerCase();
+    let size = origSize.toLowerCase();
+    let brand = origBrand.toLowerCase();
+
+    // 3) price_max (anti-bruit : ignore “1” venant de “un/une”)
+    let priceMax = Number(p.price_max ?? p.max_price ?? p.price ?? undefined);
+    if (!Number.isFinite(priceMax)) priceMax = undefined;
+    if (priceMax !== undefined && priceMax < 5) priceMax = undefined;
+
+    // 4) Si FR -> trad souple FR->EN pour la recherche
+    if (String(lang).toLowerCase().startsWith("fr")) {
+      if (color)    color = translateLoose(color, frToEn);
+      if (category) category = translateLoose(category, frToEn);
+    }
+
+    // 5) Étiquettes d’affichage (ne pas montrer les clés EN si FR)
+    const displayColor = String(lang).toLowerCase().startsWith("fr")
+      ? (origColor || enToFr[color] || color)
+      : color;
+
+    const displayCategory = String(lang).toLowerCase().startsWith("fr")
+      ? (origCategory || enToFr[category] || category || "articles")
+      : (category || "products");
+
+    // 6) Filtrage
+    const result = CATALOG.filter((item) => {
+      const okColor = !color || normalize(item.color).includes(normalize(color));
+      const okCat   = !category || normalize(item.category).includes(normalize(category));
+      const okSize  = !size || normalize(String(item.size)) === normalize(size);
+      const okBrand = !brand || normalize(item.brand).includes(normalize(brand));
+      const okPrice = priceMax === undefined || item.price <= priceMax;
+      return okColor && okCat && okSize && okBrand && okPrice;
+    });
+
+    // 7) Réponse
+    let message;
+    if (result.length > 0) {
+      message = t(
+        `Here are some ${displayColor || ""} ${displayCategory} I found: ${result.map(p => p.name).join(", ")}.`,
+        `Voici quelques ${displayCategory} ${displayColor || ""} que j’ai trouvés : ${result.map(p => p.name).join(", ")}.`
+      );
+    } else {
+      message = t(
+        "Sorry, I couldn't find any matching products.",
+        "Désolé, je n’ai trouvé aucun produit correspondant."
+      );
+    }
+
+    return res.json({
+      fulfillment_response: { messages: [{ text: { text: [message] } }] }
+    });
+  }
+
+  // =============== C) Fallback tag inconnu ===============
+  const sorry = i18n(lang)(
+    "Sorry, I didn't understand.",
+    "Désolé, je n’ai pas compris."
+  );
+  return res.json({
+    fulfillment_response: { messages: [{ text: { text: [sorry] } }] }
+  });
+});
+
+// --- 6) Démarrage serveur
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log("Webhook listening on", PORT));
+
   // Couleurs
   "rouge": "red",
   "bleu": "blue",
