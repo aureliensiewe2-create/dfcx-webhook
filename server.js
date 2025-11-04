@@ -172,9 +172,17 @@ app.post("/df-webhook", (req, res) => {
     // 6) Filtrage
     const result = CATALOG.filter((item) => {
       const okColor = !color || normalize(item.color).includes(normalize(color));
-      const okCat   = !category || normalize(item.category).includes(normalize(category));
-      const okSize  = !size || normalize(String(item.size)) === normalize(size);
-      const okBrand = !brand || normalize(item.brand).includes(normalize(brand));
+     // juste avant, ajoute une version sans pluriel à droite
+const catNorm = normalize(category).replace(/s\b/, "");
+
+const okCat =
+  !category ||
+  normalize(item.category).includes(catNorm) ||
+  catNorm.includes(normalize(item.category));
+
+    const okBrand = !brand || !item.brand || normalize(item.brand).includes(normalize(brand));
+const okSize = !size || !item.size || normalize(String(item.size)) === normalize(size);
+
       const okPrice = priceMax === undefined || item.price <= priceMax;
       return okColor && okCat && okSize && okBrand && okPrice;
     });
