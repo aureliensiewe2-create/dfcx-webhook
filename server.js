@@ -179,28 +179,38 @@ app.post("/df-webhook", (req, res) => {
       return okColor && okCat && okSize && okBrand && okPrice;
     });
 
-    // 7) Réponse
+// 7) Réponse
 let message;
-if (result.length > 0) {
 
-  // Traduction inverse (EN -> FR) pour les affichages
+if (result.length > 0) {
+  // Traduction inverse (EN -> FR) pour l’affichage global de la requête
   const displayColor = enToFr[color] || color;
   const displayCategory = enToFr[category] || category;
 
+  // Libellé FR pour chaque item : "<catégorie fr> <couleur fr>"
+  const itemLabel = (it) => {
+    const catFr = enToFr[it.category] || it.category;
+    const colFr = enToFr[it.color] || it.color;
+    return `${catFr} ${colFr}`.trim(); // ex: "t-shirt noir", "robe rouge"
+  };
+
+  const listFr = result.map(itemLabel).join(", ");
+
   message = t(
     `Here are some ${displayColor || ""} ${displayCategory || "products"} I found: ${result.map(p => p.name).join(", ")}`,
-    `Voici quelques ${displayCategory || "articles"} ${displayColor || ""} que j’ai trouvés : ${result.map(p => p.name).join(", ")}`
+    `Voici quelques ${displayCategory || "articles"} ${displayColor || ""} que j’ai trouvés : ${listFr}`
   );
 } else {
   message = t(
-    "Sorry, I couldn’t find any matching products.",
+    "Sorry, I couldn't find any matching products.",
     "Désolé, je n’ai trouvé aucun produit correspondant."
   );
 }
- return res.json({
-      fulfillment_response: { messages: [{ text: { text: [message] } }] }
-    });
-  }
+
+return res.json({
+  fulfillment_response: { messages: [{ text: { text: [message] } }] }
+});
+}
 
   // =============== C) Fallback tag inconnu ===============
   const sorry = i18n(lang)(
