@@ -180,20 +180,24 @@ app.post("/df-webhook", (req, res) => {
     });
 
     // 7) Réponse
-    let message;
-    if (result.length > 0) {
-      message = t(
-        `Here are some ${displayColor || ""} ${displayCategory} I found: ${result.map(p => p.name).join(", ")}.`,
-        `Voici quelques ${displayCategory} ${displayColor || ""} que j’ai trouvés : ${result.map(p => p.name).join(", ")}.`
-      );
-    } else {
-      message = t(
-        "Sorry, I couldn't find any matching products.",
-        "Désolé, je n’ai trouvé aucun produit correspondant."
-      );
-    }
+let message;
+if (result.length > 0) {
 
-    return res.json({
+  // Traduction inverse (EN -> FR) pour les affichages
+  const displayColor = enToFr[color] || color;
+  const displayCategory = enToFr[category] || category;
+
+  message = t(
+    `Here are some ${displayColor || ""} ${displayCategory || "products"} I found: ${result.map(p => p.name).join(", ")}`,
+    `Voici quelques ${displayCategory || "articles"} ${displayColor || ""} que j’ai trouvés : ${result.map(p => p.name).join(", ")}`
+  );
+} else {
+  message = t(
+    "Sorry, I couldn’t find any matching products.",
+    "Désolé, je n’ai trouvé aucun produit correspondant."
+  );
+}
+ return res.json({
       fulfillment_response: { messages: [{ text: { text: [message] } }] }
     });
   }
